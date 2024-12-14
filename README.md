@@ -1,118 +1,62 @@
+# ReactJS-Spring-Boot-Full-Stack-App (AWS Migration)
 
-<b>ReactJS-Spring-Boot-Full-Stack-App</b>
-<hr>
+This is the same web application but now migrated to the AWS Cloud.
 
-This project consists of two applications: one is a Spring Boot Rest API
-called spring-backend and another is a ReactJS application called
-react-frontend.
+## Code Changes
 
-Service-oriented platform focusing on establishing and maintaining
-connections between consumers and small businesses in the The Arts,
-Entertainment, and Recreation sector.
+- **Docker file**:
+  - **react-frontend**: building the image using slim image and nginx for faster build
+  - **spring-backend**: building the image using jdk 11 and jre 11 slim for faster build
+- **Health Check API**: health check api for exposing the backend using Application Load Balancer
+- **Page Navigation**: fixed the web page navigation (changed `router.push` with `navigate`)
+- **Presigned URL**: added AWS Lambda function call to get the presigned URL for uploading images to Amazon S3 bucket.
 
-Click [here](https://www.hobbie.ch) to view the application.
-This application is subject to Copyright.
+## AWS Services Used:
 
-<b>Applications</b>
-<hr>
+- **Virtual Private Cloud (VPC)**:
+  - **2 Public Subnets** for internet access and Application Load Balancer (ALB).
+  - **2 Private Subnets** for codebase deployment in Elastic Container Service (ECS), AWS Lambda Function to upload image to Amazon S3 and exposing the web application using Application Load Balancer (ALB).
+  - **2 Private Subnets** for Amazon Relational Database (RDS) to store application data.
+- **Elastic Container Registry** (ECR):
+  - For storing the frontend and backend images.
+- **Elastic Computer Service** (ECS - Fargate):
+  - For deploying the frontend and backend container for the web application.
+- **Application Load Balancer** (ALB):
+  - **Port 80** to forward the internet traffic of port 80 to frontend ECS service.
+  - **Port 8080** to forward the internet traffic of port 8080 to backend ECS service.
+- **Amazon Relational Database Service** (RDS - MySQL):
+  - For storing the data.
+- **AWS Lambda Function**:
+  - For uploading the images using the S3 presigned URL.
+- **Amazon S3**:
+  - For storing the images uploaded by the web application users.
+- **AWS Secrets Manager**:
+  - For storing the web application sensitive informations (Database Password, JWT Secret, Email Password).
+- **CloudFormation**:
+  - For automatic resource allocation using yml script.
 
- <b> - spring-backend</b>
+## Deployment Screenshots
 
-Spring Boot Web Java backend application that exposes a REST API to
-manage hobbies. Its secured endpoints can just be accessed if an access
-token (JWT) is provided.
+1. CloudFormation Stack Creation
+   ![CloudFormation](assets/cloudformation.png)
 
-spring-backend stores its data in a MySql database.
+2. Virtual Private Cloud (VPC)
+   ![VPC (Virtual Private Cloud)](assets/vpc.png)
 
-spring-backend has the following endpoints
+3. Elastic Container Service (ECS)
+   ![ECS (Elastic Container Service)](assets/fargate.png)
 
+4. Application Load Balancer (ALB)
+   ![ALB (Application Load Balancer)](assets/alb.png)
 
-<b>-react-frontend</b>
+5. Amazon Relational Database Service (RDS)
+   ![RDS (Relational Database Service)](assets/rds.png)
 
-ReactJS frontend application where users can find and save hobbies and businesses can manage offers. In order to access the application, user / business must login using his/her username and password.  All the requests coming from react-frontend to secured endpoints in spring-backend have a access token (JWT) that is generated when user / business logs in.
+6. AWS Lambda Function
+   ![Lambda Function](assets/lambda.png)
 
-react-frontend uses Semantic UI React as CSS-styled framework.
+7. Amazon S3
+   ![S3](assets/s3.png)
 
-<b>Prerequisites</b>
-<hr>
-
--Java 11+
-
--npm
-
--JWT 
-
-<b>Set up</b>
-
-<hr></hr>
-
-Clone the repository:
-
-<pre>git clone https://github.com/purshink/ReactJS-Spring-Boot-Full-Stack-App.git</pre>
-
-Navigate to the newly created folder:
-
-<pre>cd  ReactJS-Spring-Boot-Full-Stack-App</pre>
- 
-
-<b>Frontend -</b>
-
-Install NodeJs.v.16.13.1 /npm v.8.3.0
-
-Navigate to react-frontend subfolder:
- 
-<pre>cd react-frontend</pre>
-
-Install the modules
-
-<pre>npm i</pre>
-
-Start the application on local host:
-
-<pre>npm start</pre>
-
-Navigate to:
-
-http://localhost:4200
-
- 
-<b>Backend -</b>
-Install JDK 11.0.11
-Install docker -v 20.10.7
-Install docker-compose -v 1.8.0
-
-Navigate to spring-backend subfolder:
-
-<pre>cd spring-backend</pre>
-
-Run the project with:
-
-<pre>docker-compose up --build</pre>
-
-
-The project has the following endpoints:
-
-IMPORTANT: to explore api enter url:  /v3/api-docs
-
-http://localhost:8080/swagger-ui/index.html
-
-
-NOTE: Testing API 
-
--/signup (create client-user) or /register (create business-user)
-
--/authenticate (returns JWT authentication token)
-
--use JWT token in order to authorize access to secured endpoints (click the lock icon or use the Authorize button on the upper right corner - then paste JWT Token )
-
-NOTE: /notification endpoint will return an internal server error if you don't specify spring.mail credentials first.
-
-<pre>The backend will run on http://localhost:8080 </pre>
-
-<b>Spring Mail</b>
-
-Make sure to specify a valid spring.mail.username and spring.mail.password in the application.properties file in order to be able to send an Email confirmation for updating user entries.
-
-IMPORTANT: if you decide not to specify mail credentials, you will get javax.mail.AuthenticationFailedException. The rest of the application should work normally despite this exception.
-
-
+8. AWS Secrets Manager
+   ![Secrets Manager](assets/secretsmanager.png)
