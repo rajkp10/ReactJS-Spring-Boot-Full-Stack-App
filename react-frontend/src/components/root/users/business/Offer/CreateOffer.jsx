@@ -100,7 +100,6 @@ const CreateOffer = () => {
 
     const img_urls = [];
     const public_ids = [];
-    let fileURL = "";
     let errors = validate(info);
     setErrors(errors);
     if (Object.keys(errors).length === 0) {
@@ -112,30 +111,32 @@ const CreateOffer = () => {
         files.galleryImgUrl3,
       ];
       const uploaders = filesToUpload.map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("tags", `dv6ktrxwv, hobbie`);
-        formData.append("upload_preset", "vgf01lnc");
-        formData.append("timestamp", (Date.now() / 1000) | 0);
+        const fileName = `${Date.now()}-${file.name}`;
+        console.log(file.type);
 
-        return await axios
-          .post(
-            "https://api.cloudinary.com/v1_1/dv6ktrxwv/image/upload",
-            formData,
-            {
-              headers: { "X-Requested-With": "XMLHttpRequest" },
-            }
-          )
-          .then(({ data }) => {
-            fileURL = data.secure_url;
-            const public_id = data.public_id;
-            img_urls.push(fileURL);
-            public_ids.push(public_id);
+        const response = await axios.get(
+          `https://oth43yasf4ex734plnanjfzazu0zvivs.lambda-url.us-east-1.on.aws?fileName=${fileName}&fileType=${file.type}`
+        );
+
+        console.log(response);
+        const { fileUrl, presignedUrl } = response.data;
+
+        console.log(fileUrl);
+        await axios
+          .put(presignedUrl, file, {
+            headers: { "Content-Type": file.type },
+          })
+          .then(() => {
+            console.log(`File uploaded successfully: ${fileUrl}`);
+            img_urls.push(fileUrl);
+            public_ids.push(fileUrl);
+          })
+          .catch((err) => {
+            console.log(err);
           });
       });
 
-      // Once all the files are uploaded
-      axios.all(uploaders).then(() => {
+      Promise.all(uploaders).then(() => {
         console.log(img_urls[0]);
         setInfo((prevState) => ({
           ...prevState,
@@ -161,7 +162,9 @@ const CreateOffer = () => {
         CreateOfferDataService(info)
           .then((res) => {
             if (res.data != null) {
-              window.location.href = "/business-home";
+              navigate("/business-home");
+
+              // window.location.href = "/business-home";
             }
           })
           .catch((err) => {
