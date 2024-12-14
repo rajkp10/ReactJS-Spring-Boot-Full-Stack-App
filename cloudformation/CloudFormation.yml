@@ -1,0 +1,677 @@
+Resources:
+  ProjectVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      Tags:
+        - Key: Name
+          Value: ProjectVPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProjectVPC
+      CidrBlock: "10.0.1.0/24"
+      AvailabilityZone: "us-east-1a"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProjectVPC
+      CidrBlock: "10.0.2.0/24"
+      AvailabilityZone: "us-east-1b"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProjectVPC
+      CidrBlock: "10.0.3.0/24"
+      AvailabilityZone: "us-east-1c"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProjectVPC
+      CidrBlock: "10.0.4.0/24"
+      AvailabilityZone: "us-east-1d"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet2
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProjectVPC
+      CidrBlock: "10.0.5.0/24"
+      AvailabilityZone: "us-east-1e"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet3
+
+  PrivateSubnet4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ProjectVPC
+      CidrBlock: "10.0.6.0/24"
+      AvailabilityZone: "us-east-1f"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet4
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ProjectInternetGateway
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref ProjectVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: ProjectNatGateway
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProjectVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ProjectVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # DB Subnet Group for RDS
+  RDSDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for RDS instances"
+      SubnetIds:
+        - !Ref PrivateSubnet3
+        - !Ref PrivateSubnet4
+      Tags:
+        - Key: Name
+          Value: RDSSubnetGroup
+
+  # Security Group for MySQL access
+  MySQLSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for RDS MySQL access from Private Subnets"
+      VpcId: !Ref ProjectVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp:
+            Fn::Sub: "10.0.3.0/24" # Inbound traffic allowed from PrivateSubnet1
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp:
+            Fn::Sub: "10.0.4.0/24" # Inbound traffic allowed from PrivateSubnet2
+      SecurityGroupEgress:
+        - IpProtocol: "-1" # Allow all outbound traffic
+          FromPort: -1
+          ToPort: -1
+          CidrIp: "0.0.0.0/0" # All outbound traffic allowed
+
+  # Security Group for ALB
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for Application Load Balancer allowing HTTP and Backend traffic from the Internet"
+      VpcId: !Ref ProjectVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0" # Allow HTTP from anywhere
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: "0.0.0.0/0" # Allow Backend traffic from anywhere
+      SecurityGroupEgress:
+        - IpProtocol: "-1" # Allow all outbound traffic
+          CidrIp: "0.0.0.0/0"
+
+  # Security Group for ECS Services
+  CodeBaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow ingress from Application Load Balancer to ECS Services"
+      VpcId: !Ref ProjectVPC
+      DependsOn:
+        - MySQLRDSInstance
+        - MySQLSecurityGroup
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup # Allow HTTP from ALB
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup # Allow Backend traffic from ALB
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
+          FromPort: -1
+          ToPort: -1
+        - IpProtocol: "tcp"
+          FromPort: 3306
+          ToPort: 3306
+          DestinationSecurityGroupId:
+            Ref: MySQLSecurityGroup
+
+  # Frontend Log Group
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/frontend
+      RetentionInDays: 30
+
+  # Backend Log Group
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/backend
+      RetentionInDays: 30
+
+  # Secret for Database Credentials
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: project/dbCredentials
+      Description: "Database username and password"
+      # Add your db username and password
+      SecretString: !Sub |
+        {
+          "username": "your db username",
+          "password": "your db password"
+        }
+
+  # Secret for JWT Token
+  JWTSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: project/jwtSecret
+      Description: "JWT secret for signing tokens"
+      # Add your jwt secret
+      SecretString: !Sub '{"jwtSecretKey": "jwt secret"}'
+
+  EmailSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: project/emailSecret
+      Description: "Email secret for mail transfer"
+      # Add your email and password
+      SecretString: !Sub |
+        {
+          "email": "your email",
+          "emailAppPassword": "your password"
+        }
+
+  # RDS MySQL Instance
+  MySQLRDSInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - DBSecret
+    Properties:
+      DBInstanceIdentifier: "ProjectMySQLDB"
+      DBInstanceClass: db.t3.medium
+      Engine: MySQL
+      EngineVersion: "8.0"
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:password}}"
+      AllocatedStorage: 20
+      DBSubnetGroupName: !Ref RDSDBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref MySQLSecurityGroup
+      MultiAZ: false
+      BackupRetentionPeriod: 7
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: MySQLRDSInstance
+
+  # Adding the S3 bucket
+  CSCI5411ProjectBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: csci5411-project-bucket
+      AccessControl: BucketOwnerFullControl
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"
+            AllowedMethods:
+              - GET
+              - POST
+              - PUT
+            AllowedHeaders:
+              - "*"
+            ExposedHeaders:
+              - x-amz-request-id
+              - x-amz-id-2
+              - x-amz-meta-custom-header
+            MaxAge: 3000
+      Tags:
+        - Key: Name
+          Value: csci5411-project-bucket
+
+  AWSSDKLambdaLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      LayerName: "aws-sdk"
+      Content:
+        S3Bucket: "mybucket-5411"
+        S3Key: "aws-sdk-layer/nodejs.zip"
+      CompatibleRuntimes:
+        - "nodejs20.x"
+
+  ImageUploadLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: Image-Upload
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: "arn:aws:iam::308108664096:role/LabRole"
+      Code:
+        S3Bucket: mybucket-5411
+        S3Key: "project-lambda-function/image-upload.zip"
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref CSCI5411ProjectBucket
+      VpcConfig:
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+        SecurityGroupIds:
+          - !Ref CodeBaseSecurityGroup
+      MemorySize: 128
+      Timeout: 10
+      Layers:
+        - !Ref AWSSDKLambdaLayer
+
+  # Lambda Function URL
+  LambdaFunctionURL:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt ImageUploadLambdaFunction.Arn
+      AuthType: NONE
+      Cors:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+        AllowHeaders:
+          - "*"
+        AllowCredentials: false
+
+  # ECS Cluster
+  ProjectECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: "ProjectECSCluster"
+      Tags:
+        - Key: Name
+          Value: ProjectECSCluster
+
+  # Target Group for Frontend Application (Port 80)
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: frontend-target-group
+      Protocol: HTTP
+      Port: 80
+      VpcId: !Ref ProjectVPC
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 80
+      HealthCheckPath: "/"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 8
+      Matcher:
+        HttpCode: "200"
+      TargetType: ip
+      Tags:
+        - Key: Name
+          Value: FrontendTargetGroup
+
+  # Target Group for Backend Application (Port 8080)
+  BackendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: backend-target-group
+      Protocol: HTTP
+      Port: 8080
+      VpcId: !Ref ProjectVPC
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 8080
+      HealthCheckPath: "/health"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 8
+      Matcher:
+        HttpCode: "200"
+      TargetType: ip
+      Tags:
+        - Key: Name
+          Value: BackendTargetGroup
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: project-alb
+      Subnets:
+        - Ref: PublicSubnet1
+        - Ref: PublicSubnet2
+        - Ref: PrivateSubnet1
+        - Ref: PrivateSubnet2
+      SecurityGroups:
+        - Ref: LoadBalancerSecurityGroup
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: "60"
+      Tags:
+        - Key: Name
+          Value: ProjectALB
+
+  # Listener for Frontend (Port 80)
+  FrontendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      DefaultActions:
+        - TargetGroupArn: !Ref FrontendTargetGroup
+          Type: forward
+      Port: 80
+      Protocol: "HTTP"
+
+  # Listener for Backend (Port 8080)
+  BackendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      DefaultActions:
+        - TargetGroupArn: !Ref BackendTargetGroup
+          Type: forward
+      Port: 8080
+      Protocol: "HTTP"
+
+  # ECS Task Definition for Frontend
+  FrontendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - MySQLRDSInstance
+    Properties:
+      Family: frontend-task
+      Cpu: "1024"
+      Memory: "3072"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: "arn:aws:iam::308108664096:role/LabRole"
+      TaskRoleArn: "arn:aws:iam::308108664096:role/LabRole"
+      ContainerDefinitions:
+        - Name: frontend-container
+          Image: "308108664096.dkr.ecr.us-east-1.amazonaws.com/csci5411/frontend:latest"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 80
+              HostPort: 80
+          Environment:
+            - Name: "REACT_API"
+              Value: !GetAtt ApplicationLoadBalancer.DNSName
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/frontend
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: frontend
+
+  # ECS Task Definition for Backend
+  BackendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - MySQLRDSInstance
+    Properties:
+      Family: backend-task
+      Cpu: "1024"
+      Memory: "3072"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: "arn:aws:iam::308108664096:role/LabRole"
+      TaskRoleArn: "arn:aws:iam::308108664096:role/LabRole"
+      ContainerDefinitions:
+        - Name: backend-container
+          Image: "308108664096.dkr.ecr.us-east-1.amazonaws.com/csci5411/backend:latest"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              HostPort: 8080
+          Environment:
+            - Name: "DB_HOST"
+              Value: !GetAtt MySQLRDSInstance.Endpoint.Address
+            - Name: "DB_PORT"
+              Value: "3306"
+            - Name: "DB_USERNAME"
+              Value: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:username}}"
+            - Name: "DB_PASSWORD"
+              Value: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:password}}"
+            - Name: "JWT_SECRET"
+              Value: !Sub "{{resolve:secretsmanager:${JWTSecret}:SecretString:jwtSecretKey}}"
+            - Name: "CLIENT_URL"
+              Value: !Sub "http://${ApplicationLoadBalancer.DNSName}"
+            - Name: "EMAIL"
+              Value: !Sub "{{resolve:secretsmanager:${EmailSecret}:SecretString:email}}"
+            - Name: "EMAIL_APP_PASSWORD"
+              Value: !Sub "{{resolve:secretsmanager:${EmailSecret}:SecretString:emailAppPassword}}"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/backend
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: backend
+
+  # ECS Service for Frontend
+  FrontendECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - MySQLRDSInstance
+      - ApplicationLoadBalancer
+    Properties:
+      Cluster: !Ref ProjectECSCluster
+      TaskDefinition: !Ref FrontendTaskDefinition
+      LaunchType: "FARGATE"
+      ServiceName: frontend-service
+      DesiredCount: 1
+      LoadBalancers:
+        - TargetGroupArn: !Ref FrontendTargetGroup
+          ContainerName: frontend-container
+          ContainerPort: 80
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet1 # Place tasks in private subnets
+            - !Ref PrivateSubnet2
+          SecurityGroups:
+            - !Ref CodeBaseSecurityGroup
+          AssignPublicIp: "DISABLED" # No public IP for backend tasks
+
+  # ECS Service for Backend
+  BackendECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - MySQLRDSInstance
+      - ApplicationLoadBalancer
+    Properties:
+      Cluster: !Ref ProjectECSCluster
+      TaskDefinition: !Ref BackendTaskDefinition
+      LaunchType: "FARGATE"
+      ServiceName: backend-service
+      DesiredCount: 1
+      LoadBalancers:
+        - TargetGroupArn: !Ref BackendTargetGroup
+          ContainerName: backend-container
+          ContainerPort: 8080
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet1 # Place tasks in private subnets
+            - !Ref PrivateSubnet2
+          SecurityGroups:
+            - !Ref CodeBaseSecurityGroup
+            - !Ref MySQLSecurityGroup
+          AssignPublicIp: "DISABLED" # No public IP for backend tasks
+
+  # Frontend Scalable Target
+  FrontendScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: FrontendECSService
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId: !Sub "service/${ProjectECSCluster}/frontend-service"
+      RoleARN: arn:aws:iam::308108664096:role/LabRole
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  # Backend Scalable Target
+  BackendScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: BackendECSService
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 1
+      ResourceId: !Sub "service/${ProjectECSCluster}/backend-service"
+      RoleARN: arn:aws:iam::308108664096:role/LabRole
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  # Frontend Scaling Policy
+  FrontendScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: FrontendCPUScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref FrontendScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 50.0
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+
+  # Backend Scaling Policy
+  BackendScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: BackendCPUScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref BackendScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 50.0
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+
+Outputs:
+  LoadBalancerURL:
+    Description: "URL of the Application Load Balancer"
+    Value: !Sub "http://${ApplicationLoadBalancer.DNSName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerURL"
+
+  LambdaFunctionURL:
+    Description: URL to access the Lambda function
+    Value: !GetAtt LambdaFunctionURL.FunctionUrl
