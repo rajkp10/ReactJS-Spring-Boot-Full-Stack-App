@@ -9,15 +9,17 @@ import backend.hobbiebackend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:4200")
 public class HomeController {
     private final HobbyService hobbyService;
 
@@ -33,5 +35,10 @@ public class HomeController {
             return this.hobbyService.getAllHobbieMatchesForClient(username);
         }
         return this.hobbyService.getAllHobbiesForBusiness(username);
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<?> checkHealth(){
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 }

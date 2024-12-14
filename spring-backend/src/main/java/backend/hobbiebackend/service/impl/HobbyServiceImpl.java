@@ -60,7 +60,7 @@ public class HobbyServiceImpl implements HobbyService {
     public boolean deleteHobby(long id) throws Exception {
         Optional<Hobby> byId = this.hobbyRepository.findById(id);
         if (byId.isPresent()) {
-            deleteResourcesById(byId.get());
+//            deleteResourcesById(byId.get());
             BusinessOwner business = this.userService.findBusinessByUsername(byId.get().getCreator());
             business.getHobby_offers().remove(byId.get());
             this.userService.findAndRemoveHobbyFromClientsRecords(byId.get());

@@ -3,6 +3,7 @@ package backend.hobbiebackend.service.impl;
 import backend.hobbiebackend.model.entities.UserEntity;
 import backend.hobbiebackend.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -19,12 +20,18 @@ public class NotificationServiceImpl implements NotificationService {
         this.javaMailSender = javaMailSender;
     }
 
+    @Value("${client.url}")
+    private String clientUrl;
+
+    @Value("${spring.mail.username}")
+    private String email;
+
     @Override
     public void sendNotification(UserEntity userEntity) {
         SimpleMailMessage mail = new SimpleMailMessage();
-        String mailBody = "http://localhost:4200/password/" + userEntity.getId();
+        String mailBody = clientUrl + "/password/" + userEntity.getId();
         mail.setTo(userEntity.getEmail());
-        mail.setFrom("findyourhobbie@gmail.com");
+        mail.setFrom(email);
         mail.setSubject("Change your password");
         mail.setText("Click the link to reset your password: " + mailBody);
 
