@@ -35,6 +35,10 @@ This is the same web application but now migrated to the AWS Cloud.
 - **CloudFormation**:
   - For automatic resource allocation using yml script.
 
+## Architecture Diagram
+
+![Architecture Diagram](assets/ArchitectureDiagram.png)
+
 ## Deployment Screenshots
 
 1. CloudFormation Stack Creation
